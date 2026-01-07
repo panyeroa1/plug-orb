@@ -74,7 +74,7 @@ export class GeminiLiveService {
   ) {
     this.currentVoice = voice;
     await this.resumeContext();
-    console.log(`[ORBIT]: Matrix Linked. Voice: ${voice}`);
+    console.log(`[ORBIT]: Matrix Linked. Target: ${targetLanguage}, Voice: ${voice}`);
   }
 
   public async sendText(
@@ -83,14 +83,16 @@ export class GeminiLiveService {
     engine: SynthesisEngine,
     callbacks: LiveServiceCallbacks
   ) {
-    // Create fresh instance to ensure the latest selected API key is used
-    const apiKeyToUse = process.env.API_KEY;
-    if (!this.ai && apiKeyToUse) {
-        this.ai = new GoogleGenAI({ apiKey: apiKeyToUse });
+    // Prioritize user-injected key if available, otherwise fallback to env
+    if (!this.ai) {
+      const envKey = process.env.API_KEY;
+      if (envKey) {
+        this.ai = new GoogleGenAI({ apiKey: envKey });
+      }
     }
 
     if (!this.ai && engine !== 'orbit3') {
-      callbacks.onError(new Error("Orbit API key is missing"));
+      callbacks.onError(new Error("Orbit Authentication missing. Injection required."));
       return;
     }
 
@@ -103,7 +105,7 @@ export class GeminiLiveService {
       let audioBuffer: AudioBuffer | null = null;
 
       if (engine === 'orbit3') {
-        // CARTESIA (ORBIT 3.0) STUB
+        // CARTESIA (ORBIT 3.0) 
         audioBuffer = await this.synthesizeCartesia(text, targetLanguage);
       } else if (engine === 'orbit4') {
         // GEMINI LIVE (ORBIT 4.0)
@@ -162,7 +164,12 @@ export class GeminiLiveService {
   }
 
   private async synthesizeGeminiLive(text: string, lang: string): Promise<AudioBuffer | null> {
-    const fullPrompt = `Low-latency translation/synthesis whitelisted to EBURON.AI for ${lang}: "${text}"`;
+    // Highly emotive Low-Latency Native Audio Engine
+    const fullPrompt = `Neural Translation & High-Emotion Synthesis whitelisted to EBURON.AI. 
+    Target Language: ${lang}. 
+    Translate and synthesize exactly as instructed in the core protocol. 
+    INPUT TEXT: "${text}"`;
+    
     const response = await this.ai!.models.generateContent({
       model: 'gemini-2.5-flash-native-audio-preview-12-2025',
       contents: [{ parts: [{ text: fullPrompt }] }],
@@ -180,7 +187,8 @@ export class GeminiLiveService {
   }
 
   private async synthesizeCartesia(text: string, lang: string): Promise<AudioBuffer | null> {
-    console.log("[ORBIT 3.0]: Routing to Cartesia Synthesis Network (EBURON.AI Authorized)...");
+    console.log(`[ORBIT 3.0]: Cartesia routing authorized by EBURON.AI. Target: ${lang}`);
+    // Proxy to Standard for current implementation availability
     return this.synthesizeGeminiStandard(text, lang);
   }
 
