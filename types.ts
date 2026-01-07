@@ -1,4 +1,3 @@
-
 export enum OrbStatus {
   IDLE = 'Idle',
   FETCHING = 'Fetching',
@@ -11,6 +10,7 @@ export enum OrbStatus {
 
 export type AppMode = 'translate' | 'speaker';
 export type TranscriptionEngine = 'pro' | 'beta' | 'main';
+export type SynthesisEngine = 'standard' | 'orbit3' | 'orbit4';
 export type InputSource = 'mic' | 'internal' | 'screen';
 
 export type EmotionTone = 'NEUTRAL' | 'HAPPY' | 'SAD' | 'ANGRY' | 'URGENT' | 'CALM' | 'INTENSE' | 'CURIOUS';

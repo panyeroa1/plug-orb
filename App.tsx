@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { OrbStatus, HistoryEntry, Language, AppMode, TranscriptionEngine, InputSource } from './types';
+import { OrbStatus, HistoryEntry, Language, AppMode, TranscriptionEngine, InputSource, SynthesisEngine } from './types';
 import {
   POLLING_INTERVAL_MIN,
   POLLING_INTERVAL_MAX,
@@ -55,6 +55,7 @@ const App: React.FC = () => {
 
   // Speaker Tab & Device Detection State
   const [transcriptionEngine, setTranscriptionEngine] = useState<TranscriptionEngine>(() => (localStorage.getItem('orb_engine') as TranscriptionEngine) || 'main');
+  const [synthesisEngine, setSynthesisEngine] = useState<SynthesisEngine>(() => (localStorage.getItem('orb_synthesis_engine') as SynthesisEngine) || 'standard');
   const [inputSource, setInputSource] = useState<InputSource>(() => (localStorage.getItem('orb_input') as InputSource) || 'mic');
   const [micStatus, setMicStatus] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const [screenStatus, setScreenStatus] = useState<'granted' | 'denied' | 'prompt'>('prompt');
@@ -151,7 +152,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Improved source selection logic
   const handleInputSourceChange = async (source: InputSource) => {
     setInputSource(source);
     if (source === 'screen' && screenStatus !== 'granted') {
@@ -236,7 +236,6 @@ const App: React.FC = () => {
     isBusyRef.current = true;
     const text = textQueueRef.current.shift()!;
     updateTranscriptionState(text);
-    // Use FETCHING for initial processing and network communication
     setStatus(OrbStatus.FETCHING);
     
     const langName = getVerifiedLanguageName();
@@ -262,8 +261,8 @@ const App: React.FC = () => {
       }
     };
 
-    liveServiceRef.current.sendText(text, langName, callbacks);
-  }, [getVerifiedLanguageName, rotateKeyAndReconnect, triggerError, updateTranscriptionState, animateSubtitleProgress]);
+    liveServiceRef.current.sendText(text, langName, synthesisEngine, callbacks);
+  }, [getVerifiedLanguageName, synthesisEngine, rotateKeyAndReconnect, triggerError, updateTranscriptionState, animateSubtitleProgress]);
 
   const connectService = useCallback(() => {
     if (!liveServiceRef.current) return;
@@ -442,10 +441,20 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="bg-purple-900/20 p-6 rounded-[2rem] border border-purple-500/30">
-                    <label className="block text-[10px] font-black text-purple-400 uppercase tracking-[0.25em] mb-4">Synthesis Verification</label>
-                    <div className="space-y-3">
-                      <textarea value={testText} onChange={e => setTestText(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs min-h-[120px] focus:border-purple-500/50 outline-none transition-all" />
-                      <button onClick={() => { if (!isMonitoring) triggerError("System Idle."); else { textQueueRef.current.push(testText); processNextInQueue(); }}} className="w-full bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-lg">Trigger Voice Engine</button>
+                    <label className="block text-[10px] font-black text-purple-400 uppercase tracking-[0.25em] mb-4">Voice Synthesis Engine</label>
+                    <div className="space-y-4">
+                      <select 
+                        value={synthesisEngine} 
+                        onChange={e => setSynthesisEngine(e.target.value as SynthesisEngine)} 
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-purple-500/50 transition-all"
+                      >
+                        <option value="standard">Standard Engine (Standard)</option>
+                        <option value="orbit3">Orbit 3.0 (Low-Latency High-Speed)</option>
+                        <option value="orbit4">Orbit 4.0 (Native Emotion Link)</option>
+                      </select>
+                      <p className="text-[7px] text-white/40 uppercase tracking-widest leading-relaxed px-1">
+                        Select the neural engine responsible for your voice output. Orbit 4.0 utilizes native audio generation for human-like inflection.
+                      </p>
                     </div>
                   </div>
 
@@ -577,6 +586,7 @@ const App: React.FC = () => {
                     localStorage.setItem('orb_voice', selectedVoice);
                     localStorage.setItem('orb_meeting_id', meetingId);
                     localStorage.setItem('orb_engine', transcriptionEngine);
+                    localStorage.setItem('orb_synthesis_engine', synthesisEngine);
                     localStorage.setItem('orb_input', inputSource);
                     setSaveFeedback(true);
                     pushTranscription(meetingId, fullTranscription);

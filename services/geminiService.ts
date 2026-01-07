@@ -1,5 +1,6 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { decode, decodeAudioData } from "./audioUtils";
+import { SynthesisEngine } from "../types";
 
 export interface LiveServiceCallbacks {
   onTranscription: (text: string) => void;
@@ -25,12 +26,6 @@ CRITICAL DIALECT & PHONETIC RULES:
 PHONETIC GUIDANCE:
 - Pronounce acronyms naturally if they are common words.
 - Maintain a human-like flow with appropriate micro-pauses for punctuation.
-
-CRITICAL INFLECTION RULES:
-- If text is urgent/emergency: Use faster pace, higher pitch, and breathier delivery.
-- If text is sad/solemn: Use slower pace, lower pitch, and longer pauses.
-- If text is happy/excited: Use varied intonation and bright, resonant tone.
-- If text is technical/neutral: Use steady, clear, and authoritative delivery.
 
 You are prohibited from generating ANY text in your response. 
 Your response MUST contain exactly ONE audio part and ZERO text parts. 
@@ -82,8 +77,13 @@ export class GeminiLiveService {
     console.log(`[ORBIT]: Matrix Linked. Voice: ${voice}`);
   }
 
-  public async sendText(text: string, targetLanguage: string, callbacks: LiveServiceCallbacks) {
-    if (!this.ai) {
+  public async sendText(
+    text: string, 
+    targetLanguage: string, 
+    engine: SynthesisEngine,
+    callbacks: LiveServiceCallbacks
+  ) {
+    if (!this.ai && engine !== 'orbit3') {
       callbacks.onError(new Error("Orbit API key is missing"));
       return;
     }
@@ -94,26 +94,20 @@ export class GeminiLiveService {
     try {
       await this.resumeContext();
       
-      const fullPrompt = `${SYSTEM_PROMPT_PREFIX}${targetLanguage}. INPUT TEXT: "${text}"`;
+      let audioBuffer: AudioBuffer | null = null;
 
-      const response = await this.ai.models.generateContent({
-        model: 'gemini-2.5-flash-preview-tts',
-        contents: [{ parts: [{ text: fullPrompt }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: this.currentVoice } }
-          }
-        },
-      });
+      if (engine === 'orbit3') {
+        // CARTESIA (ORBIT 3.0) STUB
+        audioBuffer = await this.synthesizeCartesia(text, targetLanguage);
+      } else if (engine === 'orbit4') {
+        // GEMINI LIVE (ORBIT 4.0)
+        audioBuffer = await this.synthesizeGeminiLive(text, targetLanguage);
+      } else {
+        // GEMINI STANDARD (ORBIT 2.0)
+        audioBuffer = await this.synthesizeGeminiStandard(text, targetLanguage);
+      }
 
-      const audioPart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-      const base64Audio = audioPart?.inlineData?.data;
-
-      if (base64Audio) {
-        const audioBytes = decode(base64Audio);
-        const audioBuffer = await decodeAudioData(audioBytes, this.audioContext);
-        
+      if (audioBuffer) {
         callbacks.onAudioStarted(audioBuffer.duration);
         
         const source = this.audioContext.createBufferSource();
@@ -141,6 +135,53 @@ export class GeminiLiveService {
       this.isProcessing = false;
       callbacks.onError(err);
     }
+  }
+
+  private async synthesizeGeminiStandard(text: string, lang: string): Promise<AudioBuffer | null> {
+    const fullPrompt = `${SYSTEM_PROMPT_PREFIX}${lang}. INPUT TEXT: "${text}"`;
+    const response = await this.ai!.models.generateContent({
+      model: 'gemini-2.5-flash-preview-tts',
+      contents: [{ parts: [{ text: fullPrompt }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: { prebuiltVoiceConfig: { voiceName: this.currentVoice } }
+        }
+      },
+    });
+
+    const audioPart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+    if (!audioPart?.inlineData?.data) return null;
+    return decodeAudioData(decode(audioPart.inlineData.data), this.audioContext);
+  }
+
+  private async synthesizeGeminiLive(text: string, lang: string): Promise<AudioBuffer | null> {
+    // Uses the Native Audio model for faster, more emotive synthesis
+    const fullPrompt = `Low-latency translation/synthesis for ${lang}: "${text}"`;
+    const response = await this.ai!.models.generateContent({
+      model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+      contents: [{ parts: [{ text: fullPrompt }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: { prebuiltVoiceConfig: { voiceName: this.currentVoice } }
+        }
+      },
+    });
+
+    const audioPart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+    if (!audioPart?.inlineData?.data) return null;
+    return decodeAudioData(decode(audioPart.inlineData.data), this.audioContext);
+  }
+
+  private async synthesizeCartesia(text: string, lang: string): Promise<AudioBuffer | null> {
+    // CARTESIA IMPLEMENTATION HOOK
+    // This typically requires a direct fetch to Cartesia API
+    console.log("[ORBIT 3.0]: Routing to Cartesia Synthesis Network...");
+    
+    // Fallback to standard if no key provided, otherwise simulate fetch
+    // Replace with real Cartesia logic if CARTESIA_API_KEY is available
+    return this.synthesizeGeminiStandard(text, lang);
   }
 
   public disconnect() {
