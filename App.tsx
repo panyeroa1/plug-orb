@@ -127,7 +127,7 @@ const App: React.FC = () => {
   const authorizeMic = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(t => t.stop());
+      stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
       setMicStatus('granted');
       setErrorMessage(null);
       refreshDeviceDetection();
@@ -140,7 +140,7 @@ const App: React.FC = () => {
   const authorizeScreen = async () => {
     try {
       const stream = await (navigator.mediaDevices as any).getDisplayMedia({ video: true, audio: true });
-      stream.getTracks().forEach(t => t.stop());
+      stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
       setScreenStatus('granted');
       setErrorMessage(null);
       return true;
@@ -236,7 +236,8 @@ const App: React.FC = () => {
     isBusyRef.current = true;
     const text = textQueueRef.current.shift()!;
     updateTranscriptionState(text);
-    setStatus(OrbStatus.BUFFERING);
+    // Use FETCHING for initial processing and network communication
+    setStatus(OrbStatus.FETCHING);
     
     const langName = getVerifiedLanguageName();
 

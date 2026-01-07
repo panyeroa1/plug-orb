@@ -43,7 +43,7 @@ export class GeminiLiveService {
   private nextStartTime: number = 0;
   private sources: Set<AudioBufferSourceNode> = new Set();
   private outputNode: GainNode;
-  private currentVoice: string = "Kore";
+  private currentVoice: string = "Orus";
   private isProcessing: boolean = false;
   
   constructor(apiKey?: string) {
